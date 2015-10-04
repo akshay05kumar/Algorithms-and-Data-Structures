@@ -1,0 +1,573 @@
+/* iterative AVL tree implementation with the help of parent pointer
+
+/*we will declare a structure for a node of tree. It will contain 4 feilds:-
+1.data :- this will contain the data value related to that node
+2.left :- this is a lpointer to left subtree of that node
+3.right :- this is a pointer to right subtree of that node
+4.height :- this is a special long integer that will contain height of that node. height=max(height(left subtree),height(right subtree))
+5.count :- this will contain no of nodes in subtree of given node.this will help in rank operations
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+
+struct node
+{
+	long int data;
+	struct node *left;
+	struct node *right;
+	struct node *parent;
+	long int height; //height contains height of that node
+	long int count; //number of nodes in subtree of given node
+};
+
+struct node *root=NULL;
+
+
+void insert(struct node *, long int value); 
+/* used to insert a node in tree.*/
+
+struct node * create_node();
+ // before inserting a node we'll create a node.this function will do that and return the address of that newly created node
+
+long int find_height(struct node *);
+/*this function will return the height of given node. if null is passes than it returns -1,if both left 
+and right of given node are null than 0 is returned otherwise height of that node*/
+
+long int max( long int, long int);
+
+void preorder_traversal(struct node *r);
+
+void inorder_traversal(struct node *r);
+
+void right_rotation(struct node *);
+
+void left_rotation(struct node *);
+
+void delete(struct node *);
+//this will delete the node but we have to pass the address of that node
+
+struct node *search(struct node *r, long int value);
+
+struct node *inorder_successor(struct node *r);
+
+struct node *min(struct node *r);
+//this function will return the minimum value in subtree
+
+int rank(struct node *,int value);
+//this function will return the rank of node having data=value. rank of node=no of nodes with value greater that that node + 1
+
+long findrank(struct node *,int rank);
+//this function will return key whose rank=rank given in this function
+
+long nodes_in_subtree(struct node *);
+//this function will give no of nodes in subtree of that node
+
+
+
+int main()
+{
+	
+	struct node *find,*temp;
+	long int i,value,n,operation=1,key;
+	int rnk;
+	
+	 scanf("%ld",&i);
+	while(i--)
+	{
+		scanf("%ld %ld\n",&n, &value);
+		
+
+		switch(n)
+		{
+			case 0:
+				find=search(root,value);
+				printf("%ld ",operation++);
+				if(find==NULL)
+					printf("value not found\n");
+				else
+					printf("value found\n");
+				break;
+			case 1:
+				insert(root, value);
+				printf("%ld insertion\n",operation++);
+				break;
+			case 2:
+				
+				find = search(root,value);
+
+				if(find!=NULL)
+				{ 
+				  delete(find);
+				}				
+				printf("%ld deletion\n",operation++);
+				break;
+			case 3:
+				rnk=rank(root,value);
+				printf("%ld ",operation++);
+				printf("rank of %ld = %d\n",value,rnk);
+				break;
+			default :
+				printf("%ld ",operation++);
+				key=findrank(root,value);
+				if(key==-1)
+					printf("key whose rank is given not in tree\n");
+				else
+					printf("key with %ld rank= %ld\n",value,key);
+				break;
+
+		}
+	}
+	//inorder_traversal(root);
+	printf("height of the tree=%ld\n",find_height(root));
+	printf("root=%ld\n",root->data);
+	
+	 return 0;
+	
+}
+
+void insert(struct node *r,long int value)
+{	/* first we will have simple bst insert than we will check whether avl property is violating*/
+	long int balance;
+	struct node *pre,*curr,*newnode,*y;
+	pre=NULL;
+	curr=r;
+
+	while(curr!=NULL) //finding the location where to insert
+	{
+		pre=curr;
+		if(value < curr->data)
+		{	
+			curr->count++; //because of insertion count value for node will increase by 1 because 1 node is going to add in subtree
+			curr=curr->left;
+		}
+
+		else
+		{	
+			curr->count++; //this will keep track of no of nodes in right subtree
+			curr=curr->right;
+		}
+	}
+	newnode=create_node();
+	newnode->data=value;
+	newnode->parent=pre;
+	if(newnode->parent==NULL)
+	{	root=newnode;
+		return;
+	}
+	else
+	{
+		if(pre->data > value)
+			pre->left=newnode;
+		else
+			pre->right=newnode;
+	}
+
+	//now we will apply rotation if necessary
+	curr=newnode->parent;
+
+	while(curr!=NULL) //loop will be stop if we reach at root or height imbalance is there
+	{
+		curr->height=1+max(find_height(curr->left),find_height(curr->right));
+		balance=find_height(curr->left)-find_height(curr->right);
+		
+		if(balance<-1 || balance>1)
+			break;
+		
+		curr=curr->parent;
+	}
+	if(curr==NULL) //if no problem because of insertion
+		return;
+	if(balance>1) //if height of left subtree is more than height of right subtree
+	{	
+		y=curr->left;
+		if(find_height(y->left)-find_height(y->right)>=0) //LL ROTATION
+		{
+			right_rotation(curr);
+		}
+		else //LR ROTATION
+		{	
+			left_rotation(y);
+			right_rotation(curr);
+		}
+	}
+		
+	if(balance<-1) //if height of right subtree is more than height of left subtree
+	{	
+		y=curr->right;
+		if(find_height(y->left)-find_height(y->right)<=0)//RR rotation
+		{
+			left_rotation(curr);
+		}
+		else //RL Rotattion
+		{
+			y=curr->right;
+			right_rotation(y);
+			left_rotation(curr);
+		}
+	}
+		
+}
+	
+
+struct node * create_node()
+{
+	struct node *newnode;
+	newnode=(struct node *) malloc(sizeof(struct node));
+	if(newnode==NULL)
+	{
+		perror("create node:");
+		exit(1);
+	}
+	newnode->left=newnode->right=newnode->parent=NULL;
+	newnode->height=newnode->count=0;
+	return newnode;
+
+}
+
+long int find_height(struct node *r)
+{
+	if(r==NULL)
+		return -1;
+	
+	return r->height;
+}
+
+long nodes_in_subtree(struct node *r)
+{
+	if(r==NULL)
+		return -1;
+	
+	return r->count;
+
+}
+
+long int max(long int a,long int b)
+{
+	if(a>b)
+		return a;
+	else
+		return  b;
+}
+
+void preorder_traversal(struct node *r)
+{	
+	if(root==NULL)
+	{
+		puts("Tree empty");
+		exit(1);
+	}
+	struct node *temp=r;
+	if(r==NULL)
+		return;
+	printf("%ld %ld\n",temp->data,temp->count);
+	preorder_traversal(temp->left);
+	preorder_traversal(temp->right);
+}
+
+void inorder_traversal(struct node *r)
+{	
+	if(root==NULL)
+	{
+		puts("Tree empty");
+		exit(1);
+	}
+	struct node *temp=r;
+	if(r==NULL)
+		return;
+	inorder_traversal(temp->left);
+	printf("%ld %d\n",temp->data,rank(root,temp->data));
+	inorder_traversal(temp->right);
+}
+
+void right_rotation(struct node *x) 
+{	
+	struct node *y;
+	y=x->left;
+	y->parent=x->parent;
+	if(x->parent==NULL)
+		root=y;
+	else if(x==x->parent->left)
+		x->parent->left=y;
+	else
+		x->parent->right=y;
+	x->left=y->right;
+	if(y->right!=NULL)
+		y->right->parent=x;
+	y->right=x;
+	x->parent=y;
+	x->height=1+max(find_height(x->left),find_height(x->right));
+	y->height=1+max(find_height(y->left),find_height(y->right));
+
+	//below 2 lines are to update the count values of nodes and it is necessary to update it in this order only
+	x->count=2+nodes_in_subtree(x->left)+nodes_in_subtree(x->right);
+	y->count=2+nodes_in_subtree(y->left)+nodes_in_subtree(y->right);
+}
+
+void left_rotation(struct node *x)
+{	
+	struct node *y;
+	y=x->right;
+	y->parent=x->parent;
+	if(x->parent==NULL)
+		root=y;
+	else if(x==x->parent->left)
+		x->parent->left=y;
+	else
+		x->parent->right=y;
+	x->right=y->left;
+	if(y->left!=NULL)
+		y->left->parent=x;
+	y->left=x;
+	x->parent=y;
+	x->height=1+max(find_height(x->left),find_height(x->right));
+	y->height=1+max(find_height(y->left),find_height(y->right));
+
+	x->count=2+nodes_in_subtree(x->left)+nodes_in_subtree(x->right);
+	y->count=2+nodes_in_subtree(y->left)+nodes_in_subtree(y->right);
+	
+}
+
+void delete(struct node *r)
+{	
+	long int balance;
+	struct node *temp,*inorder_succ,*curr,*y;
+	if(root==NULL)
+	{
+		printf("Tree is empty\n");
+		exit(1);
+	}
+	
+
+	temp=r;
+
+	//simple bst deletion
+	if(temp->left==NULL && temp->right==NULL) //0 child
+	{
+		if(temp->parent==NULL)
+		{
+			root=curr=NULL;
+		}
+		else
+		{
+			if(temp == temp->parent->right)
+			{	
+				curr=temp->parent;
+				temp->parent->right=NULL;
+			}
+			else
+			{	
+				curr=temp->parent;
+				temp->parent->left=NULL;
+			}
+		}
+		free(temp);
+	}
+	else if(temp->left==NULL) //1 child case and that is right child
+	{
+		if(temp->parent==NULL)
+		{	
+			root=temp->right;
+			root->parent=NULL;
+		}
+		else
+		{	
+			if(temp==temp->parent->right)
+			{	
+				curr=temp->parent;
+				temp->parent->right=temp->right;
+			}	
+			else
+			{	
+				curr=temp->parent;
+				temp->parent->left=temp->right;
+			}
+		}
+		temp->right->parent=temp->parent;
+		free(temp);	
+	}
+
+	else if(temp->right==NULL) //1 child case and that is left child
+	{
+		if(temp->parent==NULL)
+		{
+			root=temp->left;
+		}
+		else
+		{
+			if(temp == temp->parent->right)
+			{	
+				curr=temp->parent;
+				temp->parent->right=temp->left;
+			}
+			else
+			{	
+				curr=temp->parent;
+				temp->parent->left=temp->left;
+			}
+		}
+		temp->left->parent=temp->parent;
+		free(temp);
+			
+	}
+
+	else // 2 child case
+	{	
+		inorder_succ=inorder_successor(temp);
+		temp->data=inorder_succ->data;
+		curr=inorder_succ->parent;
+		if(inorder_succ==inorder_succ->parent->left)
+		{
+			curr->left=inorder_succ->right;
+			if(inorder_succ->right!=NULL)
+				inorder_succ->right->parent=curr;
+		}
+		else
+		{
+			inorder_succ->parent->right=inorder_succ->right;
+			if(inorder_succ->right!=NULL)
+				inorder_succ->right->parent=inorder_succ->parent;
+		}
+		free(inorder_succ);
+
+	}
+	//now when we delete any node than it will decrease the count of all its ancestors by one
+	temp=curr;
+	while(temp!=NULL)
+	{
+		temp->count=temp->count-1;
+		temp=temp->parent;
+	}
+
+	
+	//now check if deletion creates any problem
+	while(curr!=NULL)
+	{	
+		curr->height=1+max(find_height(curr->left),find_height(curr->right));
+		balance=find_height(curr->left)-find_height(curr->right);
+		if(balance>1)
+		{	y=curr->left;
+			if(find_height(y->left)-find_height(y->right)>=0) //LL ROTATION
+			{
+				right_rotation(curr);
+			}
+			else //LR ROTATION
+			{	
+				left_rotation(y);
+				right_rotation(curr);
+			}
+		}
+	
+		if(balance<-1)
+		{	
+			y=curr->right;
+			if(find_height(y->left)-find_height(y->right)<=0)//RR rotation
+			{
+				left_rotation(curr);
+			}
+			else //RL Rotattion
+			{
+				right_rotation(y);
+				left_rotation(curr);
+			}
+		}
+		curr=curr->parent;
+	}
+}
+	
+
+
+
+struct node *search(struct node *r,long int value)
+{
+	if(root==NULL)
+	{
+		printf("tree is emplty");
+		exit(1);
+	}
+	struct node * temp=r;
+	while(temp!=NULL && temp->data!=value)
+	{	
+		if(temp->data>value)
+			temp=temp->left;
+		else
+			temp=temp->right;
+
+	}
+	return temp;
+}
+
+struct node *inorder_successor(struct node *r)
+{	
+	struct node *temp,*pre;
+	if(root==NULL)
+	{
+		printf("tree is emplty");
+		exit(1);
+	}
+	if(r->right!=NULL)
+		return min(r->right);
+	temp=r;
+	pre=temp->parent;
+	while(pre!=NULL && temp!=pre->left )
+	{
+		temp=pre;
+		pre=pre->parent;
+	}
+	return pre;
+}
+
+struct node *min(struct node *r)
+{	
+	if(root==NULL)
+	{
+		puts("Tree empty");
+		exit(1);
+	}
+	struct node *temp=r;
+	while(r->left!=NULL)
+	{
+		r=r->left;
+	}
+	return r;
+}
+
+int rank(struct node *r,int value)
+{
+	int rank=0;
+	while(r!=NULL)
+	{
+		if(r->data==value)
+		{
+			rank=rank+nodes_in_subtree(r->right)+2;
+			break;
+		}
+		else if(r->data > value)
+		{
+			rank=rank+nodes_in_subtree(r->right)+2;
+			r=r->left;
+		}
+		else
+			r=r->right;
+	}
+	if(r==NULL)
+		return rank+1;
+
+	return rank;
+}
+
+long findrank(struct node *r,int rank)
+{
+	if(r==NULL)
+	{	
+		return -1;
+	} 
+	if(nodes_in_subtree(r->right)+2==rank)
+	{	
+		return r->data;
+	}
+	if(nodes_in_subtree(r->right)+2 < rank)
+		findrank(r->left,rank-(nodes_in_subtree(r->right)+2));
+	else
+		findrank(r->right,rank);
+}
